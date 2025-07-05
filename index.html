@@ -52,7 +52,13 @@
     }
     #result {
       margin-top: 15px;
-      font-size: 14px;
+      padding: 10px;
+      border: 1px solid #eee;
+      border-radius: 5px;
+      background-color: #fafafa;
+      font-size: 16px; /* [修改] 將字體調大 */
+      line-height: 1.7;
+      display: none; /* [修改] 預設隱藏解析 */
     }
     #score {
       margin-top: 5px;
@@ -60,11 +66,9 @@
     }
     .button-group {
       margin-top: 10px;
-      display: flex; /* 使用 Flexbox */
+      display: flex;
       align-items: center;
-    }
-    #prev-btn {
-        margin-left: 8px;
+      gap: 8px; /* 使用 gap 來設定按鈕間距 */
     }
     #reset-btn {
         margin-left: auto;
@@ -87,13 +91,13 @@
   <div id="result"></div>
   <div id="score"></div>
   <div class="button-group">
-    <button id="next-btn" onclick="nextQuestion()" disabled>下一題</button>
     <button id="prev-btn" onclick="previousQuestion()" disabled>上一題</button>
+    <button id="explanation-btn" onclick="toggleExplanation()" disabled>看解析</button>
+    <button id="next-btn" onclick="nextQuestion()" disabled>下一題</button>
     <button id="reset-btn" onclick="resetQuiz()">重新開始</button>
   </div>
 
   <script>
-    // [修改] 將題庫變數宣告為一個空物件，等待載入
     let questionBanks = {};
     const maxQuestions = 50;
 
@@ -113,16 +117,18 @@
     const nextBtn = document.getElementById("next-btn");
     const prevBtn = document.getElementById("prev-btn");
     const resetBtn = document.getElementById("reset-btn");
+    // [新增] 取得解析按鈕的參考
+    const explanationBtn = document.getElementById("explanation-btn");
 
-    // [修改] 使用異步函數 (async/await) 來載入題庫
     async function loadQuestionBank() {
         try {
-            const response = await fetch('questions.json'); // 讀取外部 JSON 檔案
+            // 使用您提供的 questions.json 檔案
+            const response = await fetch('questions.json'); 
             if (!response.ok) {
                 throw new Error('無法載入題庫檔案！');
             }
             questionBanks = await response.json();
-            loadQuestions(); // 載入成功後，初始化測驗
+            loadQuestions();
         } catch (error) {
             console.error(error);
             questionBox.innerHTML = "<p>錯誤：無法載入題庫。請檢查 questions.json 檔案是否存在且格式正確。</p>";
@@ -135,7 +141,6 @@
     });
 
     function loadQuestions() {
-      // 深度複製並初始化題目狀態
       currentQuestions = JSON.parse(JSON.stringify(questionBanks[currentSubject])).map(q => ({
           ...q,
           userAttempt: {
@@ -165,26 +170,28 @@
       quizEnded = false;
       
       nextBtn.textContent = "下一題";
-      nextBtn.style.display = "block";
+      nextBtn.style.display = "inline-block";
       showQuestion();
     }
 
     function showQuestion() {
-      questionBox.innerHTML = "";
-      result.textContent = "";
+      // [修改] 切換題目時，隱藏解析並重置按鈕文字
+      result.style.display = 'none';
+      explanationBtn.textContent = "看解析";
       updateScore();
 
       if (quizEnded) {
         questionBox.innerHTML = `<p>答題結束！總分：${scorePoints} 分 (每題答對得 2 分)</p>`;
         const optionsContainer = document.getElementById("options-container");
         if (optionsContainer) optionsContainer.innerHTML = '';
-        result.innerHTML = '';
         nextBtn.style.display = "none";
         prevBtn.disabled = true;
+        explanationBtn.disabled = true; // 結束時禁用解析按鈕
         resetBtn.disabled = false;
         return;
       }
-
+      
+      questionBox.innerHTML = ""; // 清空題目區
       const q = currentQuestions[currentQuestionIndex];
       const questionEl = document.createElement("div");
       questionEl.innerHTML = `<strong>Q${currentQuestionIndex + 1}：</strong>${q.question}`;
@@ -215,65 +222,73 @@
           q.userAttempt.answered = true;
           q.userAttempt.choiceIndex = originalIndex;
           q.userAttempt.wasCorrect = (originalIndex === q.answer);
-          completedCount++;
-          optionElements.forEach(el => el.style.pointerEvents = "none");
-
-          if (q.userAttempt.wasCorrect) {
-            correctCount++;
-            scorePoints += 2;
-            updateScore();
-            if (completedCount >= maxQuestions) {
-                quizEnded = true;
-                setTimeout(showQuestion, 300); // 短暫延遲後顯示結果
-            } else {
-                setTimeout(nextQuestion, 300); // 短暫延遲後跳到下一題
-            }
+          
+          if (!q.userAttempt.wasCorrect) { // 只有在答錯時才增加錯題計數
+              wrongCount++;
           } else {
-            wrongCount++;
-            btn.classList.add("incorrect");
-            optionElements.forEach(el => {
+              correctCount++;
+              scorePoints += 2;
+          }
+          completedCount++;
+
+          // 標示正確與錯誤選項
+          optionElements.forEach(el => {
+              el.style.pointerEvents = "none";
               const actualOptionIndex = q.options.indexOf(el.textContent);
               if (actualOptionIndex === q.answer) el.classList.add("correct");
-            });
-            result.innerHTML = `<small>解析：${q.explanation}</small>`;
-            updateScore();
-            nextBtn.disabled = false;
-            prevBtn.disabled = currentQuestionIndex === 0;
-            if (completedCount >= maxQuestions) {
-                quizEnded = true;
-                nextBtn.disabled = true;
-            }
+              if (actualOptionIndex === originalIndex && !q.userAttempt.wasCorrect) {
+                  el.classList.add("incorrect");
+              }
+          });
+          
+          updateScore();
+          // [修改] 啟用導航與解析按鈕
+          nextBtn.disabled = false;
+          prevBtn.disabled = currentQuestionIndex === 0;
+          explanationBtn.disabled = false; 
+
+          if (completedCount >= maxQuestions) {
+              quizEnded = true;
+              nextBtn.textContent = "查看結果";
           }
         });
       });
-
+      
+      // 如果題目已經回答過，恢復顯示狀態
       if (q.userAttempt.answered) {
-        if (q.userAttempt.wasCorrect) {
-            optionElements.forEach(el => {
-                if (q.options.indexOf(el.textContent) === q.answer) el.classList.add("correct");
-            });
-        } else {
-            optionElements.forEach(el => {
-                const actualOptionIndex = q.options.indexOf(el.textContent);
-                if (actualOptionIndex === q.userAttempt.choiceIndex) el.classList.add("incorrect");
-                if (actualOptionIndex === q.answer) el.classList.add("correct");
-            });
-            result.innerHTML = `<small>解析：${q.explanation}</small>`;
-        }
-        optionElements.forEach(el => el.style.pointerEvents = "none");
-        nextBtn.disabled = false;
+        optionElements.forEach(el => {
+            el.style.pointerEvents = "none";
+            const actualOptionIndex = q.options.indexOf(el.textContent);
+            if (actualOptionIndex === q.answer) el.classList.add("correct");
+            if (actualOptionIndex === q.userAttempt.choiceIndex && !q.userAttempt.wasCorrect) {
+                el.classList.add("incorrect");
+            }
+        });
+        nextBtn.disabled = currentQuestionIndex >= currentQuestions.length - 1 && quizEnded;
         prevBtn.disabled = currentQuestionIndex === 0;
+        explanationBtn.disabled = false;
       } else {
+        // 未回答時，禁用導航與解析按鈕
         nextBtn.disabled = true;
         prevBtn.disabled = currentQuestionIndex === 0;
+        explanationBtn.disabled = true;
+      }
+    }
+    
+    // [新增] 切換解析顯示的函數
+    function toggleExplanation() {
+      const q = currentQuestions[currentQuestionIndex];
+      if (result.style.display === 'none') {
+        result.innerHTML = `解析：${q.explanation}`;
+        result.style.display = 'block';
+        explanationBtn.textContent = '隱藏解析';
+      } else {
+        result.style.display = 'none';
+        explanationBtn.textContent = '看解析';
       }
     }
 
     function nextQuestion() {
-      if (quizEnded) {
-        alert("答題已結束，請點「重新開始」重新開始。");
-        return;
-      }
       if (currentQuestionIndex < currentQuestions.length - 1) {
         currentQuestionIndex++;
         showQuestion();
@@ -294,7 +309,6 @@
 
     function resetQuiz() {
       loadQuestions();
-      prevBtn.disabled = true;
     }
 
     function updateScore() {
@@ -308,7 +322,6 @@
       }
     }
 
-    // [修改] 初始載入改為呼叫新的載入函式
     loadQuestionBank();
   </script>
 </body>
