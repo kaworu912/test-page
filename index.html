@@ -123,7 +123,6 @@
             }
             questionBanks = await response.json();
             
-            // 動態填充科目下拉選單
             subjectSelect.innerHTML = '';
             for (const subject in questionBanks) {
                 const option = document.createElement('option');
@@ -169,8 +168,8 @@
       correctCount = 0;
       wrongCount = 0;
       scorePoints = 0;
-      completedCount = 0;
       quizEnded = false;
+      completedCount = 0;
       
       nextBtn.textContent = "下一題";
       nextBtn.style.display = "inline-block";
@@ -187,8 +186,8 @@
         const optionsContainer = document.getElementById("options-container");
         if (optionsContainer) optionsContainer.innerHTML = '';
         nextBtn.style.display = "none";
-        prevBtn.disabled = false; // 結束後可以往前看
-        explanationBtn.disabled = !currentQuestions[currentQuestionIndex]?.userAttempt.answered;
+        prevBtn.disabled = false;
+        explanationBtn.disabled = false; // 答題結束後也可看解析
         return;
       }
       
@@ -203,10 +202,9 @@
       questionBox.appendChild(optionsContainer);
 
       const optionElements = [];
-      // 如果題目有 shuffledOptions 屬性，就使用它，否則創建一個
       if (!q.shuffledOptions) {
-          q.shuffledOptions = [...q.options]; // 複製一份選項
-          shuffleArray(q.shuffledOptions); // 只洗牌一次
+          q.shuffledOptions = [...q.options];
+          shuffleArray(q.shuffledOptions);
       }
 
       q.shuffledOptions.forEach(optionText => {
@@ -220,7 +218,7 @@
           if (q.userAttempt.answered) return;
           
           q.userAttempt.answered = true;
-          const chosenIndex = q.options.indexOf(optionText); // 找到原始索引
+          const chosenIndex = q.options.indexOf(optionText);
           q.userAttempt.choiceIndex = chosenIndex;
           q.userAttempt.wasCorrect = (chosenIndex === q.answer);
 
@@ -244,7 +242,7 @@
           updateScore();
           nextBtn.disabled = false;
           prevBtn.disabled = currentQuestionIndex === 0;
-          explanationBtn.disabled = false; 
+          explanationBtn.disabled = false;
 
           if (completedCount >= currentQuestions.length) {
               quizEnded = true;
@@ -253,6 +251,13 @@
         });
       });
       
+      // *** 主要修改處 ***
+      // 不論是否回答過，都將按鈕設為可用狀態
+      prevBtn.disabled = currentQuestionIndex === 0;
+      nextBtn.disabled = currentQuestionIndex >= currentQuestions.length - 1;
+      explanationBtn.disabled = false; // <<< 這一行是關鍵，永遠保持啟用
+
+      // 如果題目已回答過，恢復顯示答題狀態
       if (q.userAttempt.answered) {
         optionElements.forEach(el => {
             el.style.pointerEvents = "none";
@@ -262,13 +267,6 @@
                 el.classList.add("incorrect");
             }
         });
-        nextBtn.disabled = (currentQuestionIndex >= currentQuestions.length - 1);
-        prevBtn.disabled = currentQuestionIndex === 0;
-        explanationBtn.disabled = false;
-      } else {
-        nextBtn.disabled = true;
-        prevBtn.disabled = true;
-        explanationBtn.disabled = true;
       }
     }
     
@@ -276,7 +274,6 @@
       const q = currentQuestions[currentQuestionIndex];
       const btn = document.getElementById("explanation-btn");
       if (result.style.display === 'none') {
-        // [修改] 增加對 q.explanation 是否存在的檢查
         const explanationText = q.explanation && q.explanation.trim() !== "" ? q.explanation : "此題沒有提供解析。";
         result.innerHTML = `解析：${explanationText}`;
         result.style.display = 'block';
