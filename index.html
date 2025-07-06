@@ -25,15 +25,16 @@
       font-size: 16px;
       color: #333;
     } */
-    .subject-selector-group {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
     .selector-group { /* 新增一個包裝器來包含科目和題目數量選擇器 */
         display: flex;
         align-items: center;
         gap: 15px; /* 增加科目和題目數量之間的間距 */
+        flex-wrap: wrap; /* 允許換行以適應小螢幕 */
+    }
+    .subject-selector-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
     label, select {
       font-size: 14px;
@@ -52,6 +53,8 @@
     .question-box {
       margin-top: 20px;
       font-size: 18px;
+      /* 確保內容可以被滑動，雖然這裡主要是為了監聽滑動事件 */
+      touch-action: pan-y; /* 允許垂直滾動，防止瀏覽器默認的水平滑動行為 */
     }
     .option {
       display: block;
@@ -91,6 +94,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      flex-wrap: wrap; /* 允許按鈕換行以適應小螢幕 */
     }
     #reset-btn {
         margin-left: auto;
@@ -126,11 +130,13 @@
 </head>
 <body>
   <div class="header-container">
-    <div class="selector-group"> <div class="subject-selector-group">
+    <div class="selector-group">
+      <div class="subject-selector-group">
         <label for="subject-select">請選擇科目：</label>
         <select id="subject-select"></select>
       </div>
-      <div class="subject-selector-group"> <label for="question-quantity-select">題目數量：</label>
+      <div class="subject-selector-group">
+        <label for="question-quantity-select">題目數量：</label>
         <select id="question-quantity-select">
           <option value="10">10題</option>
           <option value="20">20題</option>
@@ -139,7 +145,7 @@
         </select>
       </div>
     </div>
-    </div>
+  </div>
 
   <div class="question-box" id="question-box"></div>
   <div id="result"></div>
@@ -184,7 +190,7 @@
     let completedCount = 0;
 
     const subjectSelect = document.getElementById("subject-select");
-    const questionQuantitySelect = document.getElementById("question-quantity-select"); // 新增：獲取題目數量選擇器
+    const questionQuantitySelect = document.getElementById("question-quantity-select");
     const questionBox = document.getElementById("question-box");
     const result = document.getElementById("result");
     const score = document.getElementById("score");
@@ -198,6 +204,11 @@
     const reviewWrongBtn = document.getElementById("review-wrong-btn");
     const finishQuizBtn = document.getElementById("finish-quiz-btn");
     
+    // 新增觸控事件相關變數
+    let touchstartX = 0;
+    let touchendX = 0;
+    const swipeThreshold = 50; // 滑動距離閾值 (像素)
+
     function setupSubjectSelector() {
         subjectSelect.innerHTML = '';
         subjects.forEach(subject => {
@@ -208,7 +219,7 @@
         });
         
         subjectSelect.addEventListener("change", loadSubjectAndStartQuiz);
-        questionQuantitySelect.addEventListener("change", loadSubjectAndStartQuiz); // 新增：監聽題目數量選擇器變化
+        questionQuantitySelect.addEventListener("change", loadSubjectAndStartQuiz);
         loadSubjectAndStartQuiz();
     }
     
@@ -241,7 +252,6 @@
     }
 
     function initializeQuiz(questions) {
-      // 根據選擇的題目數量來決定實際的測驗題目數
       const selectedMaxQuestions = parseInt(questionQuantitySelect.value);
 
       currentQuestions = JSON.parse(JSON.stringify(questions)).map(q => ({
@@ -250,7 +260,6 @@
           userAttempt: { answered: false, choiceIndex: -1, wasCorrect: null }
       }));
       
-      // 如果題庫數量大於選擇的數量，則隨機選取
       if (currentQuestions.length > selectedMaxQuestions) {
           shuffleArray(currentQuestions);
           currentQuestions = currentQuestions.slice(0, selectedMaxQuestions);
@@ -392,8 +401,8 @@
             startNewQuiz();
             return;
         }
-        allQuestionsForSubject = wrongQuestions; // 重新設定題庫為錯題
-        // 重新初始化測驗，但題目數量為錯題的數量
+        allQuestionsForSubject = wrongQuestions;
+        // 重新初始化測驗，題目數量為錯題的實際數量
         initializeQuiz(allQuestionsForSubject); 
     });
 
@@ -442,7 +451,7 @@
     function updateScore() {
         const totalScore = parseFloat(scorePoints.toFixed(2));
         const totalQuestions = currentQuestions.length;
-        score.textContent = `✔️ 答對：${correctCount} 題　❌ 答錯：${wrongCount} 題　總分：${totalScore} 分 (已完成 ${completedCount} / ${totalQuestions} 題)`;
+        score.textContent = ✔️ 答對：${correctCount} 題　❌ 答錯：${wrongCount} 題　總分：${totalScore} 分 (已完成 ${completedCount} / ${totalQuestions} 題)`;
     }
 
     function shuffleArray(array) {
@@ -453,6 +462,28 @@
     }
     
     calculateBtn.addEventListener("click", showEndQuizModal);
+
+    // 新增：觸控事件監聽器
+    questionBox.addEventListener('touchstart', e => {
+        touchstartX = e.changedTouches[0].screenX;
+    }, false); // 設置 passive 為 false，可以避免一些瀏覽器的默認行為問題
+
+    questionBox.addEventListener('touchend', e => {
+        touchendX = e.changedTouches[0].screenX;
+        handleGesture();
+    }, false);
+
+    function handleGesture() {
+        if (touchendX < touchstartX - swipeThreshold) {
+            // 向左滑動 (下一題)
+            nextQuestion();
+        }
+
+        if (touchendX > touchstartX + swipeThreshold) {
+            // 向右滑動 (上一題)
+            previousQuestion();
+        }
+    }
 
     setupSubjectSelector();
   </script>
