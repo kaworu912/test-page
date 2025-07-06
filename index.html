@@ -19,15 +19,21 @@
       align-items: center;
       margin-bottom: 10px;
     }
-    .header-container h2 {
+    /* 移除 h2 的樣式，因為 h2 將被移除 */
+    /* .header-container h2 {
       margin: 0;
       font-size: 16px;
       color: #333;
-    }
+    } */
     .subject-selector-group {
         display: flex;
         align-items: center;
         gap: 8px;
+    }
+    .selector-group { /* 新增一個包裝器來包含科目和題目數量選擇器 */
+        display: flex;
+        align-items: center;
+        gap: 15px; /* 增加科目和題目數量之間的間距 */
     }
     label, select {
       font-size: 14px;
@@ -120,13 +126,20 @@
 </head>
 <body>
   <div class="header-container">
-    <div class="subject-selector-group">
-      <label for="subject-select">請選擇科目：</label>
-      <select id="subject-select">
+    <div class="selector-group"> <div class="subject-selector-group">
+        <label for="subject-select">請選擇科目：</label>
+        <select id="subject-select"></select>
+      </div>
+      <div class="subject-selector-group"> <label for="question-quantity-select">題目數量：</label>
+        <select id="question-quantity-select">
+          <option value="10">10題</option>
+          <option value="20">20題</option>
+          <option value="30">30題</option>
+          <option value="50">50題</option>
         </select>
+      </div>
     </div>
-    <h2>答題系統</h2>
-  </div>
+    </div>
 
   <div class="question-box" id="question-box"></div>
   <div id="result"></div>
@@ -135,7 +148,8 @@
     <button id="prev-btn" onclick="previousQuestion()" disabled>上一題</button>
     <button id="explanation-btn" onclick="toggleExplanation()" disabled>看解析</button>
     <button id="next-btn" onclick="nextQuestion()" disabled>下一題</button>
-    <button id="calculate-btn" disabled style="display: none;">結算</button> <button id="reset-btn" onclick="startNewQuiz()">重新開始</button>
+    <button id="calculate-btn" disabled style="display: none;">結算</button>
+    <button id="reset-btn" onclick="startNewQuiz()">重新開始</button>
   </div>
 
   <div id="end-quiz-modal" class="modal-overlay">
@@ -160,7 +174,7 @@
     ];
 
     let allQuestionsForSubject = []; 
-    const maxQuestions = 50;
+    // const maxQuestions = 50; // 這個變數現在會從下拉選單獲取
 
     let currentQuestions = [];
     let currentQuestionIndex = 0;
@@ -170,12 +184,13 @@
     let completedCount = 0;
 
     const subjectSelect = document.getElementById("subject-select");
+    const questionQuantitySelect = document.getElementById("question-quantity-select"); // 新增：獲取題目數量選擇器
     const questionBox = document.getElementById("question-box");
     const result = document.getElementById("result");
     const score = document.getElementById("score");
     const nextBtn = document.getElementById("next-btn");
     const prevBtn = document.getElementById("prev-btn");
-    const calculateBtn = document.getElementById("calculate-btn"); // 取得結算按鈕
+    const calculateBtn = document.getElementById("calculate-btn");
     const resetBtn = document.getElementById("reset-btn");
     const explanationBtn = document.getElementById("explanation-btn");
     const endQuizModal = document.getElementById("end-quiz-modal");
@@ -193,6 +208,7 @@
         });
         
         subjectSelect.addEventListener("change", loadSubjectAndStartQuiz);
+        questionQuantitySelect.addEventListener("change", loadSubjectAndStartQuiz); // 新增：監聽題目數量選擇器變化
         loadSubjectAndStartQuiz();
     }
     
@@ -219,21 +235,25 @@
             prevBtn.disabled = true;
             nextBtn.disabled = true;
             explanationBtn.disabled = true;
-            calculateBtn.disabled = true; // 確保結算按鈕禁用
-            calculateBtn.style.display = "none"; // 確保結算按鈕隱藏
+            calculateBtn.disabled = true;
+            calculateBtn.style.display = "none";
         }
     }
 
     function initializeQuiz(questions) {
+      // 根據選擇的題目數量來決定實際的測驗題目數
+      const selectedMaxQuestions = parseInt(questionQuantitySelect.value);
+
       currentQuestions = JSON.parse(JSON.stringify(questions)).map(q => ({
           ...q,
           shuffledOptions: null,
           userAttempt: { answered: false, choiceIndex: -1, wasCorrect: null }
       }));
       
-      if (currentQuestions.length > maxQuestions) {
+      // 如果題庫數量大於選擇的數量，則隨機選取
+      if (currentQuestions.length > selectedMaxQuestions) {
           shuffleArray(currentQuestions);
-          currentQuestions = currentQuestions.slice(0, maxQuestions);
+          currentQuestions = currentQuestions.slice(0, selectedMaxQuestions);
       }
       
       currentQuestionIndex = 0;
@@ -244,8 +264,8 @@
       
       nextBtn.textContent = "下一題";
       nextBtn.style.display = "inline-block";
-      calculateBtn.style.display = "none"; // 初始化時隱藏結算按鈕
-      calculateBtn.disabled = true; // 初始化時禁用結算按鈕
+      calculateBtn.style.display = "none";
+      calculateBtn.disabled = true;
       showQuestion();
     }
 
@@ -254,7 +274,15 @@
       explanationBtn.textContent = "看解析";
       updateScore();
       
-      if (currentQuestions.length === 0) return;
+      if (currentQuestions.length === 0) {
+        questionBox.innerHTML = "<p>此科目沒有題目。</p>";
+        prevBtn.disabled = true;
+        nextBtn.disabled = true;
+        explanationBtn.disabled = true;
+        calculateBtn.disabled = true;
+        calculateBtn.style.display = "none";
+        return;
+      }
 
       questionBox.innerHTML = "";
       const q = currentQuestions[currentQuestionIndex];
@@ -271,7 +299,6 @@
           shuffleArray(q.shuffledOptions);
       }
 
-      // 重置結算按鈕狀態，除非已完成所有題目
       if (completedCount < currentQuestions.length) {
           calculateBtn.style.display = "none";
           calculateBtn.disabled = true;
@@ -289,7 +316,7 @@
           
           q.userAttempt.answered = true;
           const chosenIndex = q.options.indexOf(optionText);
-          q.userAttempt.choiceIndex = chosenIndex; // 保存使用者選擇的原始索引
+          q.userAttempt.choiceIndex = chosenIndex;
           q.userAttempt.wasCorrect = (chosenIndex === q.answer);
 
           if (!q.userAttempt.wasCorrect) {
@@ -312,14 +339,13 @@
           updateScore();
           prevBtn.disabled = currentQuestionIndex === 0;
 
-          // 當所有題目都答完後
           if (completedCount === currentQuestions.length) {
-            nextBtn.disabled = true; // 禁用下一題按鈕
-            nextBtn.textContent = "所有題目已作答"; // 更改按鈕文字
-            calculateBtn.style.display = "inline-block"; // 顯示結算按鈕
-            calculateBtn.disabled = false; // 啟用結算按鈕
+            nextBtn.disabled = true;
+            nextBtn.textContent = "所有題目已作答";
+            calculateBtn.style.display = "inline-block";
+            calculateBtn.disabled = false;
           } else {
-            nextBtn.disabled = false; // 未答完所有題目，下一題按鈕保持啟用
+            nextBtn.disabled = false;
             nextBtn.textContent = "下一題";
           }
         });
@@ -328,7 +354,6 @@
       prevBtn.disabled = currentQuestionIndex === 0;
       explanationBtn.disabled = false; 
       
-      // 如果題目已經回答過，則處理選項樣式和按鈕狀態
       if (q.userAttempt.answered) {
          Array.from(optionsContainer.children).forEach(el => {
             el.style.pointerEvents = "none";
@@ -339,18 +364,16 @@
                  el.classList.add("incorrect");
             }
         });
-        // 答過題後，如果所有題目都已回答完畢，則啟用結算按鈕
         if (completedCount === currentQuestions.length) {
             nextBtn.disabled = true;
             nextBtn.textContent = "所有題目已作答";
             calculateBtn.style.display = "inline-block";
             calculateBtn.disabled = false;
         } else {
-            nextBtn.disabled = false; // 恢復下一題按鈕
+            nextBtn.disabled = false;
             nextBtn.textContent = "下一題";
         }
       } else {
-          // 如果當前題目未回答，禁用下一題按鈕直到回答
           nextBtn.disabled = true;
           nextBtn.textContent = "下一題";
       }
@@ -369,8 +392,9 @@
             startNewQuiz();
             return;
         }
-        allQuestionsForSubject = wrongQuestions;
-        initializeQuiz(allQuestionsForSubject);
+        allQuestionsForSubject = wrongQuestions; // 重新設定題庫為錯題
+        // 重新初始化測驗，但題目數量為錯題的數量
+        initializeQuiz(allQuestionsForSubject); 
     });
 
     finishQuizBtn.addEventListener('click', () => {
@@ -397,12 +421,9 @@
         currentQuestionIndex++;
         showQuestion();
       } else if (completedCount === currentQuestions.length) {
-          // 如果已經是最後一題且所有題目都已作答，點擊下一題就觸發結算
-          // 這裡可以選擇是否直接彈出模態框，或者讓使用者必須點擊"結算"按鈕
-          // 由於你的需求是新增"結算"按鈕，所以這裡不自動彈出，而是確保結算按鈕可點
           calculateBtn.style.display = "inline-block";
           calculateBtn.disabled = false;
-          nextBtn.disabled = true; // 確保下一題按鈕被禁用
+          nextBtn.disabled = true;
           nextBtn.textContent = "所有題目已作答";
       }
     }
@@ -431,7 +452,6 @@
       }
     }
     
-    // 監聽結算按鈕的點擊事件
     calculateBtn.addEventListener("click", showEndQuizModal);
 
     setupSubjectSelector();
