@@ -13,9 +13,25 @@
       max-width: 600px;
       margin: auto;
     }
-    h2 {
-      font-size: 14px;
+    /* --- 修改處：新增 header 容器樣式 --- */
+    .header-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px; /* 和下方內容的間距 */
     }
+    .header-container h2 {
+      margin: 0; /* 移除 h2 預設的上下邊距 */
+      font-size: 16px;
+      color: #333;
+    }
+    .subject-selector-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    /* --- 修改處結束 --- */
+    
     label, select {
       font-size: 14px;
     }
@@ -26,6 +42,10 @@
       border: 1px solid #ccc;
       cursor: pointer;
       font-size: 14px;
+    }
+    /* 移除被容器管理的邊距 */
+    .subject-selector-group label, .subject-selector-group select {
+        margin: 0;
     }
     .question-box {
       margin-top: 20px;
@@ -43,7 +63,7 @@
       user-select: none;
     }
     .option.correct {
-      background-color: #e2f7e1; /* 淺綠色 */
+      background-color: #e2f7e1;
       border-color: #c3e6cb;
     }
     .option.incorrect {
@@ -73,7 +93,6 @@
     #reset-btn {
         margin-left: auto;
     }
-    /* --- 新增：結束視窗的樣式 --- */
     .modal-overlay {
       position: fixed;
       top: 0;
@@ -81,7 +100,7 @@
       width: 100%;
       height: 100%;
       background-color: rgba(0, 0, 0, 0.6);
-      display: flex;
+      display: none;
       justify-content: center;
       align-items: center;
       z-index: 1000;
@@ -104,13 +123,14 @@
   </style>
 </head>
 <body>
-  <h2>答題系統（隨機50題）</h2>
-
-  <label for="subject-select">請選擇科目：</label>
-  <select id="subject-select">
-    <option value="監獄行刑法概要">監獄行刑法概要</option>
-    </select>
-
+  <div class="header-container">
+    <div class="subject-selector-group">
+      <label for="subject-select">請選擇科目：</label>
+      <select id="subject-select">
+        </select>
+    </div>
+    <h2>答題系統（隨機50題）</h2>
+  </div>
   <div class="question-box" id="question-box"></div>
   <div id="result"></div>
   <div id="score"></div>
@@ -121,7 +141,7 @@
     <button id="reset-btn" onclick="resetQuiz()">重新開始</button>
   </div>
 
-  <div id="end-quiz-modal" class="modal-overlay" style="display: none;">
+  <div id="end-quiz-modal" class="modal-overlay">
     <div class="modal-content">
       <h3>測驗結束！</h3>
       <p id="modal-score-summary"></p>
@@ -134,7 +154,7 @@
 
   <script>
     let questionBanks = {};
-    let allQuestionsForSubject = []; // 保存原始題庫
+    let allQuestionsForSubject = [];
     const maxQuestions = 50;
 
     let currentQuestions = [];
@@ -173,7 +193,6 @@
                 option.textContent = subject;
                 subjectSelect.appendChild(option);
             }
-            currentSubject = subjectSelect.value;
             
             resetQuiz();
         } catch (error) {
@@ -183,21 +202,20 @@
     }
 
     subjectSelect.addEventListener("change", function () {
-      currentSubject = this.value;
       resetQuiz();
     });
 
     function initializeQuiz(questions) {
       currentQuestions = questions.map(q => ({
           ...q,
-          shuffledOptions: null, // 清空上次洗牌的順序
+          shuffledOptions: null,
           userAttempt: {
               answered: false,
               choiceIndex: -1,
               wasCorrect: null
           }
       }));
-
+      
       if (currentQuestions.length > maxQuestions) {
           shuffleArray(currentQuestions);
           currentQuestions = currentQuestions.slice(0, maxQuestions);
@@ -219,6 +237,8 @@
       explanationBtn.textContent = "看解析";
       updateScore();
       
+      if (currentQuestions.length === 0) return;
+
       questionBox.innerHTML = "";
       const q = currentQuestions[currentQuestionIndex];
       const questionEl = document.createElement("div");
@@ -247,7 +267,6 @@
           
           q.userAttempt.answered = true;
           const chosenIndex = q.options.indexOf(optionText);
-          q.userAttempt.choiceIndex = chosenIndex;
           q.userAttempt.wasCorrect = (chosenIndex === q.answer);
 
           if (!q.userAttempt.wasCorrect) {
@@ -268,20 +287,17 @@
           });
           
           updateScore();
-          nextBtn.disabled = false;
+          nextBtn.disabled = (currentQuestionIndex >= currentQuestions.length - 1);
           
           if (completedCount >= currentQuestions.length) {
-            setTimeout(showEndQuizModal, 500); // 延遲一下顯示結束視窗
+            setTimeout(showEndQuizModal, 500);
           }
         });
       });
       
       prevBtn.disabled = currentQuestionIndex === 0;
       explanationBtn.disabled = false; 
-      nextBtn.disabled = !q.userAttempt.answered;
-       if (currentQuestionIndex >= currentQuestions.length - 1 && q.userAttempt.answered) {
-          nextBtn.disabled = true;
-      }
+      nextBtn.disabled = !q.userAttempt.answered || (currentQuestionIndex >= currentQuestions.length - 1);
 
       if (q.userAttempt.answered) {
         optionElements.forEach(el => {
@@ -289,8 +305,9 @@
             const originalIndexOfEl = q.options.indexOf(el.textContent);
             if (originalIndexOfEl === q.answer) el.classList.add("correct");
             
-            const shuffledChoice = q.shuffledOptions.find(opt => q.options.indexOf(opt) === q.userAttempt.choiceIndex);
-            if (el.textContent === shuffledChoice && !q.userAttempt.wasCorrect) {
+            // This part might not be perfect for restoring incorrect choice display with double shuffling
+            const userChoiceText = q.options[q.userAttempt.choiceIndex];
+            if(el.textContent === userChoiceText && !q.userAttempt.wasCorrect) {
                  el.classList.add("incorrect");
             }
         });
@@ -347,13 +364,22 @@
     }
 
     function resetQuiz() {
-      allQuestionsForSubject = JSON.parse(JSON.stringify(questionBanks[currentSubject] || []));
+      const selectedSubject = subjectSelect.value;
+      allQuestionsForSubject = JSON.parse(JSON.stringify(questionBanks[selectedSubject] || []));
+      if(allQuestionsForSubject.length === 0){
+          questionBox.innerHTML = `<p>此科目題庫為空，請選擇其他科目。</p>`;
+          score.textContent = '';
+          prevBtn.disabled = true;
+          nextBtn.disabled = true;
+          explanationBtn.disabled = true;
+          return;
+      }
       initializeQuiz(allQuestionsForSubject);
     }
 
     function updateScore() {
         const totalScore = parseFloat(scorePoints.toFixed(2));
-        const totalQuestions = currentQuestions.length || maxQuestions;
+        const totalQuestions = currentQuestions.length;
         score.textContent = `✔️ 答對：${correctCount} 題　❌ 答錯：${wrongCount} 題　總分：${totalScore} 分 (已完成 ${completedCount} / ${totalQuestions} 題)`;
     }
 
