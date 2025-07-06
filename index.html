@@ -56,9 +56,9 @@
       border: 1px solid #eee;
       border-radius: 5px;
       background-color: #fafafa;
-      font-size: 18px;   /* 解析字體大小 */
+      font-size: 18px; /* <<< 修改：字體大小改為 18px */
       line-height: 1.7;
-      display: none;
+      display: none;   /* <<< 修改：預設隱藏 */
     }
     #score {
       margin-top: 5px;
@@ -80,8 +80,12 @@
 
   <label for="subject-select">請選擇科目：</label>
   <select id="subject-select">
-    <option value="監獄行刑法概要">監獄行刑法概要</option>
-    </select>
+    <option value="監獄行刑法">監獄行刑法</option>
+    <option value="刑法">刑法</option>
+    <option value="法學緒論">法學緒論</option>
+    <option value="犯罪學">犯罪學</option>
+    <option value="監獄學">監獄學</option>
+  </select>
 
   <div class="question-box" id="question-box"></div>
   <div id="result"></div>
@@ -97,7 +101,7 @@
     let questionBanks = {};
     const maxQuestions = 50;
 
-    let currentSubject = "監獄行刑法概要";
+    let currentSubject = "監獄行刑法";
     let currentQuestions = [];
     let currentQuestionIndex = 0;
     let correctCount = 0;
@@ -124,7 +128,7 @@
             questionBanks = await response.json();
             
             subjectSelect.innerHTML = '';
-            for (const subject in questionBanks) {
+             for (const subject in questionBanks) {
                 const option = document.createElement('option');
                 option.value = subject;
                 option.textContent = subject;
@@ -149,7 +153,6 @@
           questionBox.innerHTML = "<p>此科目沒有題目。</p>";
           return;
       }
-
       currentQuestions = JSON.parse(JSON.stringify(questionBanks[currentSubject])).map(q => ({
           ...q,
           userAttempt: {
@@ -182,12 +185,12 @@
       updateScore();
 
       if (quizEnded) {
-        questionBox.innerHTML = `<p>答題結束！總分：${scorePoints} 分 (共 ${currentQuestions.length} 題)</p>`;
+        questionBox.innerHTML = `<p>答題結束！總分：${scorePoints.toFixed(2)} 分 (共 ${currentQuestions.length} 題)</p>`;
         const optionsContainer = document.getElementById("options-container");
         if (optionsContainer) optionsContainer.innerHTML = '';
         nextBtn.style.display = "none";
         prevBtn.disabled = false;
-        explanationBtn.disabled = false; // 答題結束後也可看解析
+        explanationBtn.disabled = false;
         return;
       }
       
@@ -219,7 +222,6 @@
           
           q.userAttempt.answered = true;
           const chosenIndex = q.options.indexOf(optionText);
-          q.userAttempt.choiceIndex = chosenIndex;
           q.userAttempt.wasCorrect = (chosenIndex === q.answer);
 
           if (!q.userAttempt.wasCorrect) {
@@ -240,9 +242,8 @@
           });
           
           updateScore();
+          // 答題後啟用下一題按鈕
           nextBtn.disabled = false;
-          prevBtn.disabled = currentQuestionIndex === 0;
-          explanationBtn.disabled = false;
 
           if (completedCount >= currentQuestions.length) {
               quizEnded = true;
@@ -251,19 +252,25 @@
         });
       });
       
-      // *** 主要修改處 ***
-      // 不論是否回答過，都將按鈕設為可用狀態
+      // <<< 修改處：無論是否答題，都啟用相關按鈕 >>>
       prevBtn.disabled = currentQuestionIndex === 0;
-      nextBtn.disabled = currentQuestionIndex >= currentQuestions.length - 1;
-      explanationBtn.disabled = false; // <<< 這一行是關鍵，永遠保持啟用
+      explanationBtn.disabled = false; // 永遠啟用解析按鈕
+      // 下一題按鈕只有在答題後才啟用
+      nextBtn.disabled = !q.userAttempt.answered;
+       if (currentQuestionIndex >= currentQuestions.length - 1) {
+          nextBtn.disabled = true; // 最後一題禁用下一題
+      }
+       if (quizEnded) {
+          nextBtn.disabled = false;
+      }
 
-      // 如果題目已回答過，恢復顯示答題狀態
+
       if (q.userAttempt.answered) {
         optionElements.forEach(el => {
             el.style.pointerEvents = "none";
             const originalIndexOfEl = q.options.indexOf(el.textContent);
             if (originalIndexOfEl === q.answer) el.classList.add("correct");
-            if (originalIndexOfEl === q.userAttempt.choiceIndex && !q.userAttempt.wasCorrect) {
+            if (originalIndexOfEl === q.options.indexOf(q.shuffledOptions.find(opt => q.options.indexOf(opt) === q.userAttempt.choiceIndex)) && !q.userAttempt.wasCorrect) {
                 el.classList.add("incorrect");
             }
         });
