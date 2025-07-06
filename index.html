@@ -451,7 +451,7 @@
     function updateScore() {
         const totalScore = parseFloat(scorePoints.toFixed(2));
         const totalQuestions = currentQuestions.length;
-        score.textContent = ✔️ 答對：${correctCount} 題　❌ 答錯：${wrongCount} 題　總分：${totalScore} 分 (已完成 ${completedCount} / ${totalQuestions} 題)`;
+        score.textContent = `✔️ 答對：${correctCount} 題　❌ 答錯：${wrongCount} 題　總分：${totalScore} 分 (已完成 ${completedCount} / ${totalQuestions} 題)`;
     }
 
     function shuffleArray(array) {
