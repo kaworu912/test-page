@@ -13,15 +13,14 @@
       max-width: 600px;
       margin: auto;
     }
-    /* --- 修改處：新增 header 容器樣式 --- */
     .header-container {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 10px; /* 和下方內容的間距 */
+      margin-bottom: 10px;
     }
     .header-container h2 {
-      margin: 0; /* 移除 h2 預設的上下邊距 */
+      margin: 0;
       font-size: 16px;
       color: #333;
     }
@@ -30,8 +29,6 @@
         align-items: center;
         gap: 8px;
     }
-    /* --- 修改處結束 --- */
-    
     label, select {
       font-size: 14px;
     }
@@ -43,7 +40,6 @@
       cursor: pointer;
       font-size: 14px;
     }
-    /* 移除被容器管理的邊距 */
     .subject-selector-group label, .subject-selector-group select {
         margin: 0;
     }
@@ -129,8 +125,9 @@
       <select id="subject-select">
         </select>
     </div>
-    <h2>答題系統（隨機50題）</h2>
+    <h2>答題系統</h2>
   </div>
+
   <div class="question-box" id="question-box"></div>
   <div id="result"></div>
   <div id="score"></div>
@@ -138,7 +135,7 @@
     <button id="prev-btn" onclick="previousQuestion()" disabled>上一題</button>
     <button id="explanation-btn" onclick="toggleExplanation()" disabled>看解析</button>
     <button id="next-btn" onclick="nextQuestion()" disabled>下一題</button>
-    <button id="reset-btn" onclick="resetQuiz()">重新開始</button>
+    <button id="reset-btn" onclick="startNewQuiz()">重新開始</button>
   </div>
 
   <div id="end-quiz-modal" class="modal-overlay">
@@ -153,8 +150,17 @@
   </div>
 
   <script>
-    let questionBanks = {};
-    let allQuestionsForSubject = [];
+    // <<< 修改：定義科目列表與對應的檔案名稱 >>>
+    const subjects = [
+        { name: "監獄行刑法概要", file: "監獄行刑法概要.json" },
+        { name: "刑法", file: "刑法.json" },
+        { name: "法學緒論", file: "法學緒論.json" },
+        { name: "犯罪學", file: "犯罪學.json" },
+        { name: "監獄學", file: "監獄學.json" },
+        { name: "模擬試題", file: "模擬試題.json" }
+    ];
+
+    let allQuestionsForSubject = []; 
     const maxQuestions = 50;
 
     let currentQuestions = [];
@@ -177,43 +183,55 @@
     const reviewWrongBtn = document.getElementById("review-wrong-btn");
     const finishQuizBtn = document.getElementById("finish-quiz-btn");
 
+    // <<< 修改：新的函式，根據選擇的科目載入對應的題庫檔案 >>>
+    async function loadSubjectAndStartQuiz() {
+        const selectedSubject = subjects.find(s => s.name === subjectSelect.value);
+        if (!selectedSubject) {
+            console.error("找不到對應的科目檔案");
+            return;
+        }
 
-    async function loadQuestionBank() {
         try {
-            const response = await fetch('questions.json'); 
+            const response = await fetch(selectedSubject.file); 
             if (!response.ok) {
-                throw new Error('無法載入題庫檔案！');
+                throw new Error(`無法載入題庫檔案：${selectedSubject.file}`);
             }
-            questionBanks = await response.json();
-            
-            subjectSelect.innerHTML = '';
-             for (const subject in questionBanks) {
-                const option = document.createElement('option');
-                option.value = subject;
-                option.textContent = subject;
-                subjectSelect.appendChild(option);
-            }
-            
-            resetQuiz();
+            allQuestionsForSubject = await response.json();
+            initializeQuiz(allQuestionsForSubject);
+
         } catch (error) {
             console.error(error);
-            questionBox.innerHTML = "<p>錯誤：無法載入題庫。請檢查 questions.json 檔案是否存在且格式正確。</p>";
+            questionBox.innerHTML = `<p>錯誤：無法載入題庫。請檢查 ${selectedSubject.file} 檔案是否存在且格式正確。</p>`;
+            score.textContent = '';
+            // 清空和禁用按鈕
+            document.getElementById('options-container')?.remove();
+            prevBtn.disabled = true;
+            nextBtn.disabled = true;
+            explanationBtn.disabled = true;
         }
     }
 
-    subjectSelect.addEventListener("change", function () {
-      resetQuiz();
-    });
+    function setupSubjectSelector() {
+        subjectSelect.innerHTML = '';
+        subjects.forEach(subject => {
+            const option = document.createElement('option');
+            option.value = subject.name;
+            option.textContent = subject.name;
+            subjectSelect.appendChild(option);
+        });
+        
+        // 監聽事件，當選擇改變時，重新載入題庫
+        subjectSelect.addEventListener("change", loadSubjectAndStartQuiz);
 
+        // 頁面初次載入時，載入第一個科目的題庫
+        loadSubjectAndStartQuiz();
+    }
+    
     function initializeQuiz(questions) {
-      currentQuestions = questions.map(q => ({
+      currentQuestions = JSON.parse(JSON.stringify(questions)).map(q => ({
           ...q,
           shuffledOptions: null,
-          userAttempt: {
-              answered: false,
-              choiceIndex: -1,
-              wasCorrect: null
-          }
+          userAttempt: { answered: false, choiceIndex: -1, wasCorrect: null }
       }));
       
       if (currentQuestions.length > maxQuestions) {
@@ -249,7 +267,6 @@
       optionsContainer.id = "options-container";
       questionBox.appendChild(optionsContainer);
 
-      const optionElements = [];
       if (!q.shuffledOptions) {
           q.shuffledOptions = [...q.options];
           shuffleArray(q.shuffledOptions);
@@ -260,7 +277,6 @@
         btn.className = "option";
         btn.textContent = optionText;
         optionsContainer.appendChild(btn);
-        optionElements.push(btn);
 
         btn.addEventListener("click", () => {
           if (q.userAttempt.answered) return;
@@ -277,7 +293,8 @@
           }
           completedCount++;
 
-          optionElements.forEach(el => {
+          // 標示選項狀態
+          Array.from(optionsContainer.children).forEach(el => {
               el.style.pointerEvents = "none";
               const originalIndexOfEl = q.options.indexOf(el.textContent);
               if (originalIndexOfEl === q.answer) el.classList.add("correct");
@@ -298,16 +315,14 @@
       prevBtn.disabled = currentQuestionIndex === 0;
       explanationBtn.disabled = false; 
       nextBtn.disabled = !q.userAttempt.answered || (currentQuestionIndex >= currentQuestions.length - 1);
-
+      
       if (q.userAttempt.answered) {
-        optionElements.forEach(el => {
+         Array.from(optionsContainer.children).forEach(el => {
             el.style.pointerEvents = "none";
             const originalIndexOfEl = q.options.indexOf(el.textContent);
             if (originalIndexOfEl === q.answer) el.classList.add("correct");
             
-            // This part might not be perfect for restoring incorrect choice display with double shuffling
-            const userChoiceText = q.options[q.userAttempt.choiceIndex];
-            if(el.textContent === userChoiceText && !q.userAttempt.wasCorrect) {
+            if (originalIndexOfEl === q.userAttempt.choiceIndex && !q.userAttempt.wasCorrect) {
                  el.classList.add("incorrect");
             }
         });
@@ -324,15 +339,17 @@
         const wrongQuestions = currentQuestions.filter(q => !q.userAttempt.wasCorrect);
         if (wrongQuestions.length === 0) {
             alert("恭喜您，全部答對！沒有錯題可以檢討。");
-            resetQuiz();
+            startNewQuiz();
             return;
         }
-        initializeQuiz(wrongQuestions);
+        // 錯題檢討也算一次新的測驗
+        allQuestionsForSubject = wrongQuestions;
+        initializeQuiz(allQuestionsForSubject);
     });
 
     finishQuizBtn.addEventListener('click', () => {
         endQuizModal.style.display = 'none';
-        resetQuiz();
+        startNewQuiz();
     });
 
     function toggleExplanation() {
@@ -363,18 +380,8 @@
       }
     }
 
-    function resetQuiz() {
-      const selectedSubject = subjectSelect.value;
-      allQuestionsForSubject = JSON.parse(JSON.stringify(questionBanks[selectedSubject] || []));
-      if(allQuestionsForSubject.length === 0){
-          questionBox.innerHTML = `<p>此科目題庫為空，請選擇其他科目。</p>`;
-          score.textContent = '';
-          prevBtn.disabled = true;
-          nextBtn.disabled = true;
-          explanationBtn.disabled = true;
-          return;
-      }
-      initializeQuiz(allQuestionsForSubject);
+    function startNewQuiz() {
+      loadSubjectAndStartQuiz();
     }
 
     function updateScore() {
@@ -389,8 +396,9 @@
         [array[i], array[j]] = [array[j], array[i]];
       }
     }
-
-    loadQuestionBank();
+    
+    // 啟動程式
+    setupSubjectSelector();
   </script>
 </body>
 </html>
