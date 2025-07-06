@@ -19,17 +19,11 @@
       align-items: center;
       margin-bottom: 10px;
     }
-    /* 移除 h2 的樣式，因為 h2 將被移除 */
-    /* .header-container h2 {
-      margin: 0;
-      font-size: 16px;
-      color: #333;
-    } */
-    .selector-group { /* 新增一個包裝器來包含科目和題目數量選擇器 */
+    .selector-group {
         display: flex;
         align-items: center;
-        gap: 15px; /* 增加科目和題目數量之間的間距 */
-        flex-wrap: wrap; /* 允許換行以適應小螢幕 */
+        gap: 15px;
+        flex-wrap: wrap;
     }
     .subject-selector-group {
         display: flex;
@@ -53,8 +47,12 @@
     .question-box {
       margin-top: 20px;
       font-size: 18px;
-      /* 確保內容可以被滑動，雖然這裡主要是為了監聽滑動事件 */
-      touch-action: pan-y; /* 允許垂直滾動，防止瀏覽器默認的水平滑動行為 */
+      touch-action: pan-y;
+      min-height: 200px; /* 增加最小高度，確保有足夠的滑動區域 */
+      display: flex; /* 使用 flexbox 讓內容垂直居中，美觀 */
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
     }
     .option {
       display: block;
@@ -66,6 +64,8 @@
       cursor: pointer;
       font-size: 18px;
       user-select: none;
+      width: 100%; /* 確保選項佔滿寬度 */
+      box-sizing: border-box; /* 邊框和內距包含在寬度內 */
     }
     .option.correct {
       background-color: #e2f7e1;
@@ -94,7 +94,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      flex-wrap: wrap; /* 允許按鈕換行以適應小螢幕 */
+      flex-wrap: wrap;
     }
     #reset-btn {
         margin-left: auto;
@@ -151,11 +151,11 @@
   <div id="result"></div>
   <div id="score"></div>
   <div class="button-group">
-    <button id="prev-btn" onclick="previousQuestion()" disabled>上一題</button>
-    <button id="explanation-btn" onclick="toggleExplanation()" disabled>看解析</button>
-    <button id="next-btn" onclick="nextQuestion()" disabled>下一題</button>
+    <button id="prev-btn" disabled>上一題</button>
+    <button id="explanation-btn" disabled>看解析</button>
+    <button id="next-btn" disabled>下一題</button>
     <button id="calculate-btn" disabled style="display: none;">結算</button>
-    <button id="reset-btn" onclick="startNewQuiz()">重新開始</button>
+    <button id="reset-btn">重新開始</button>
   </div>
 
   <div id="end-quiz-modal" class="modal-overlay">
@@ -180,8 +180,6 @@
     ];
 
     let allQuestionsForSubject = []; 
-    // const maxQuestions = 50; // 這個變數現在會從下拉選單獲取
-
     let currentQuestions = [];
     let currentQuestionIndex = 0;
     let correctCount = 0;
@@ -204,7 +202,7 @@
     const reviewWrongBtn = document.getElementById("review-wrong-btn");
     const finishQuizBtn = document.getElementById("finish-quiz-btn");
     
-    // 新增觸控事件相關變數
+    // 觸控事件相關變數
     let touchstartX = 0;
     let touchendX = 0;
     const swipeThreshold = 50; // 滑動距離閾值 (像素)
@@ -218,11 +216,48 @@
             subjectSelect.appendChild(option);
         });
         
-        subjectSelect.addEventListener("change", loadSubjectAndStartQuiz);
-        questionQuantitySelect.addEventListener("change", loadSubjectAndStartQuiz);
+        setupEventListeners(); // 集中設定事件監聽器
         loadSubjectAndStartQuiz();
     }
     
+    // 新增：集中設定所有事件監聽器的函數
+    function setupEventListeners() {
+        subjectSelect.addEventListener("change", loadSubjectAndStartQuiz);
+        questionQuantitySelect.addEventListener("change", loadSubjectAndStartQuiz);
+        prevBtn.addEventListener("click", previousQuestion); // 從 onclick 移過來
+        explanationBtn.addEventListener("click", toggleExplanation); // 從 onclick 移過來
+        nextBtn.addEventListener("click", nextQuestion); // 從 onclick 移過來
+        calculateBtn.addEventListener("click", showEndQuizModal);
+        resetBtn.addEventListener("click", startNewQuiz); // 從 onclick 移過來
+
+        // 觸控事件監聽器
+        questionBox.addEventListener('touchstart', e => {
+            touchstartX = e.changedTouches[0].screenX;
+        }, false);
+
+        questionBox.addEventListener('touchend', e => {
+            touchendX = e.changedTouches[0].screenX;
+            handleGesture();
+        }, false);
+
+        reviewWrongBtn.addEventListener('click', () => {
+            endQuizModal.style.display = 'none';
+            const wrongQuestions = currentQuestions.filter(q => !q.userAttempt.wasCorrect);
+            if (wrongQuestions.length === 0) {
+                alert("恭喜您，全部答對！沒有錯題可以檢討。");
+                startNewQuiz();
+                return;
+            }
+            // 錯題檢討時，直接使用所有錯題，不再次隨機選擇數量
+            initializeQuiz(wrongQuestions, true); // 傳遞 true 表示為錯題檢討模式
+        });
+
+        finishQuizBtn.addEventListener('click', () => {
+            endQuizModal.style.display = 'none';
+            startNewQuiz();
+        });
+    }
+
     async function loadSubjectAndStartQuiz() {
         const selectedSubject = subjects.find(s => s.name === subjectSelect.value);
         if (!selectedSubject) {
@@ -239,7 +274,7 @@
             initializeQuiz(allQuestionsForSubject);
 
         } catch (error) {
-            console.error(error);
+            console.error("載入題庫失敗:", error); // 增加錯誤提示的細節
             questionBox.innerHTML = `<p>錯誤：無法載入題庫。請檢查 ${selectedSubject.file} 檔案是否存在且格式正確。</p>`;
             score.textContent = '';
             document.getElementById('options-container')?.remove();
@@ -251,19 +286,20 @@
         }
     }
 
-    function initializeQuiz(questions) {
-      const selectedMaxQuestions = parseInt(questionQuantitySelect.value);
-
-      currentQuestions = JSON.parse(JSON.stringify(questions)).map(q => ({
-          ...q,
-          shuffledOptions: null,
-          userAttempt: { answered: false, choiceIndex: -1, wasCorrect: null }
-      }));
+    // initializeQuiz 函數新增一個參數 isReviewWrong เพื่อ處理錯題檢討
+    function initializeQuiz(questionsToUse, isReviewWrong = false) {
+      let questionsSource = JSON.parse(JSON.stringify(questionsToUse)); // 確保是獨立副本
       
-      if (currentQuestions.length > selectedMaxQuestions) {
-          shuffleArray(currentQuestions);
-          currentQuestions = currentQuestions.slice(0, selectedMaxQuestions);
+      if (!isReviewWrong) { // 如果不是錯題檢討模式，才根據下拉選單決定數量
+          const selectedMaxQuestions = parseInt(questionQuantitySelect.value);
+          if (questionsSource.length > selectedMaxQuestions) {
+              shuffleArray(questionsSource);
+              questionsSource = questionsSource.slice(0, selectedMaxQuestions);
+          }
       }
+      // 如果是錯題檢討，則直接使用傳入的 questionsToUse (即 wrongQuestions)
+
+      currentQuestions = questionsSource; // 設定為處理過後的題目列表
       
       currentQuestionIndex = 0;
       correctCount = 0;
@@ -393,24 +429,6 @@
         endQuizModal.style.display = 'flex';
     }
     
-    reviewWrongBtn.addEventListener('click', () => {
-        endQuizModal.style.display = 'none';
-        const wrongQuestions = currentQuestions.filter(q => !q.userAttempt.wasCorrect);
-        if (wrongQuestions.length === 0) {
-            alert("恭喜您，全部答對！沒有錯題可以檢討。");
-            startNewQuiz();
-            return;
-        }
-        allQuestionsForSubject = wrongQuestions;
-        // 重新初始化測驗，題目數量為錯題的實際數量
-        initializeQuiz(allQuestionsForSubject); 
-    });
-
-    finishQuizBtn.addEventListener('click', () => {
-        endQuizModal.style.display = 'none';
-        startNewQuiz();
-    });
-
     function toggleExplanation() {
       const q = currentQuestions[currentQuestionIndex];
       const btn = document.getElementById("explanation-btn");
@@ -461,30 +479,8 @@
       }
     }
     
-    calculateBtn.addEventListener("click", showEndQuizModal);
-
-    // 新增：觸控事件監聽器
-    questionBox.addEventListener('touchstart', e => {
-        touchstartX = e.changedTouches[0].screenX;
-    }, false); // 設置 passive 為 false，可以避免一些瀏覽器的默認行為問題
-
-    questionBox.addEventListener('touchend', e => {
-        touchendX = e.changedTouches[0].screenX;
-        handleGesture();
-    }, false);
-
-    function handleGesture() {
-        if (touchendX < touchstartX - swipeThreshold) {
-            // 向左滑動 (下一題)
-            nextQuestion();
-        }
-
-        if (touchendX > touchstartX + swipeThreshold) {
-            // 向右滑動 (上一題)
-            previousQuestion();
-        }
-    }
-
+    // 初始設定時，只呼叫 setupSubjectSelector
+    // setupEventListeners 會在 setupSubjectSelector 內部被呼叫
     setupSubjectSelector();
   </script>
 </body>
