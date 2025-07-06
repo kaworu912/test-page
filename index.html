@@ -150,7 +150,7 @@
   </div>
 
   <script>
-    // <<< 修改：定義科目列表與對應的檔案名稱 >>>
+    // <<< 修改處：將「監獄行刑法概要」改為「監獄行刑法」 >>>
     const subjects = [
         { name: "監獄行刑法", file: "監獄行刑法.json" },
         { name: "刑法", file: "刑法.json" },
@@ -182,8 +182,20 @@
     const modalScoreSummary = document.getElementById("modal-score-summary");
     const reviewWrongBtn = document.getElementById("review-wrong-btn");
     const finishQuizBtn = document.getElementById("finish-quiz-btn");
-
-    // <<< 修改：新的函式，根據選擇的科目載入對應的題庫檔案 >>>
+    
+    function setupSubjectSelector() {
+        subjectSelect.innerHTML = '';
+        subjects.forEach(subject => {
+            const option = document.createElement('option');
+            option.value = subject.name;
+            option.textContent = subject.name;
+            subjectSelect.appendChild(option);
+        });
+        
+        subjectSelect.addEventListener("change", loadSubjectAndStartQuiz);
+        loadSubjectAndStartQuiz();
+    }
+    
     async function loadSubjectAndStartQuiz() {
         const selectedSubject = subjects.find(s => s.name === subjectSelect.value);
         if (!selectedSubject) {
@@ -203,7 +215,6 @@
             console.error(error);
             questionBox.innerHTML = `<p>錯誤：無法載入題庫。請檢查 ${selectedSubject.file} 檔案是否存在且格式正確。</p>`;
             score.textContent = '';
-            // 清空和禁用按鈕
             document.getElementById('options-container')?.remove();
             prevBtn.disabled = true;
             nextBtn.disabled = true;
@@ -211,22 +222,6 @@
         }
     }
 
-    function setupSubjectSelector() {
-        subjectSelect.innerHTML = '';
-        subjects.forEach(subject => {
-            const option = document.createElement('option');
-            option.value = subject.name;
-            option.textContent = subject.name;
-            subjectSelect.appendChild(option);
-        });
-        
-        // 監聽事件，當選擇改變時，重新載入題庫
-        subjectSelect.addEventListener("change", loadSubjectAndStartQuiz);
-
-        // 頁面初次載入時，載入第一個科目的題庫
-        loadSubjectAndStartQuiz();
-    }
-    
     function initializeQuiz(questions) {
       currentQuestions = JSON.parse(JSON.stringify(questions)).map(q => ({
           ...q,
@@ -293,7 +288,6 @@
           }
           completedCount++;
 
-          // 標示選項狀態
           Array.from(optionsContainer.children).forEach(el => {
               el.style.pointerEvents = "none";
               const originalIndexOfEl = q.options.indexOf(el.textContent);
@@ -342,7 +336,6 @@
             startNewQuiz();
             return;
         }
-        // 錯題檢討也算一次新的測驗
         allQuestionsForSubject = wrongQuestions;
         initializeQuiz(allQuestionsForSubject);
     });
@@ -397,7 +390,6 @@
       }
     }
     
-    // 啟動程式
     setupSubjectSelector();
   </script>
 </body>
