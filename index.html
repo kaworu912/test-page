@@ -19,16 +19,16 @@
       align-items: center;
       margin-bottom: 10px;
     }
-    .selector-group { /* 新增一個包裝器來包含科目和題目數量選擇器 */
-        display: flex;
-        align-items: center;
-        gap: 15px; /* 增加科目和題目數量之間的間距 */
-        flex-wrap: wrap; /* 允許換行以適應小螢幕 */
+    .selector-group {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
     }
     .subject-selector-group {
-        display: flex;
-        align-items: center;
-        gap: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     label, select {
       font-size: 14px;
@@ -42,14 +42,14 @@
       font-size: 14px;
     }
     .subject-selector-group label, .subject-selector-group select {
-        margin: 0;
+      margin: 0;
     }
     .question-box {
       margin-top: 20px;
       font-size: 18px;
-      touch-action: pan-y; /* 允許垂直滾動，防止瀏覽器默認的水平滑動行為 */
-      min-height: 200px; /* 增加最小高度，確保有足夠的滑動區域 */
-      display: flex; /* 使用 flexbox 讓內容垂直居中，美觀 */
+      touch-action: pan-y;
+      min-height: 200px;
+      display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: flex-start;
@@ -64,8 +64,8 @@
       cursor: pointer;
       font-size: 18px;
       user-select: none;
-      width: 100%; /* 確保選項佔滿寬度 */
-      box-sizing: border-box; /* 邊框和內距包含在寬度內 */
+      width: 100%;
+      box-sizing: border-box;
     }
     .option.correct {
       background-color: #e2f7e1;
@@ -94,10 +94,10 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      flex-wrap: wrap; /* 允許按鈕換行以適應小螢幕 */
+      flex-wrap: wrap;
     }
     #reset-btn {
-        margin-left: auto;
+      margin-left: auto;
     }
     .modal-overlay {
       position: fixed;
@@ -142,6 +142,7 @@
           <option value="20">20題</option>
           <option value="30">30題</option>
           <option value="50">50題</option>
+          <option value="all">全部</option>
         </select>
       </div>
     </div>
@@ -187,6 +188,7 @@
     let scorePoints = 0;
     let completedCount = 0;
 
+    // DOM Elements
     const subjectSelect = document.getElementById("subject-select");
     const questionQuantitySelect = document.getElementById("question-quantity-select");
     const questionBox = document.getElementById("question-box");
@@ -202,10 +204,10 @@
     const reviewWrongBtn = document.getElementById("review-wrong-btn");
     const finishQuizBtn = document.getElementById("finish-quiz-btn");
     
-    // 觸控事件相關變數
+    // Touch event variables
     let touchstartX = 0;
     let touchendX = 0;
-    const swipeThreshold = 50; // 滑動距離閾值 (像素)
+    const swipeThreshold = 50; 
 
     function setupSubjectSelector() {
         subjectSelect.innerHTML = '';
@@ -216,42 +218,38 @@
             subjectSelect.appendChild(option);
         });
         
-        setupEventListeners(); // 集中設定事件監聽器
+        setupEventListeners();
         loadSubjectAndStartQuiz();
     }
     
-    // 新增：集中設定所有事件監聽器的函數
     function setupEventListeners() {
         subjectSelect.addEventListener("change", loadSubjectAndStartQuiz);
         questionQuantitySelect.addEventListener("change", loadSubjectAndStartQuiz);
         
-        // 將 onclick 移到 JavaScript 中
         prevBtn.addEventListener("click", previousQuestion);
         explanationBtn.addEventListener("click", toggleExplanation);
         nextBtn.addEventListener("click", nextQuestion);
         calculateBtn.addEventListener("click", showEndQuizModal);
         resetBtn.addEventListener("click", startNewQuiz);
 
-        // 觸控事件監聽器
         questionBox.addEventListener('touchstart', e => {
             touchstartX = e.changedTouches[0].screenX;
-        }, { passive: false }); // 設置 passive 為 false，可以避免一些瀏覽器的默認行為問題
+        }, { passive: true });
 
         questionBox.addEventListener('touchend', e => {
             touchendX = e.changedTouches[0].screenX;
             handleGesture();
-        }, { passive: false }); // 設置 passive 為 false
+        }, { passive: true });
 
         reviewWrongBtn.addEventListener('click', () => {
             endQuizModal.style.display = 'none';
-            const wrongQuestions = currentQuestions.filter(q => !q.userAttempt.wasCorrect);
+            const wrongQuestions = currentQuestions.filter(q => q.userAttempt && !q.userAttempt.wasCorrect);
             if (wrongQuestions.length === 0) {
                 alert("恭喜您，全部答對！沒有錯題可以檢討。");
                 startNewQuiz();
                 return;
             }
-            // 錯題檢討時，直接使用所有錯題，不再次隨機選擇數量
-            initializeQuiz(wrongQuestions, true); // 傳遞 true 表示為錯題檢討模式
+            initializeQuiz(wrongQuestions, true);
         });
 
         finishQuizBtn.addEventListener('click', () => {
@@ -270,7 +268,6 @@
         try {
             const response = await fetch(selectedSubject.file); 
             if (!response.ok) {
-                // 如果檔案不存在或伺服器錯誤，這裡會拋出錯誤
                 throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
             }
             allQuestionsForSubject = await response.json();
@@ -278,37 +275,43 @@
 
         } catch (error) {
             console.error("載入題庫失敗:", error);
-            // 檢查是否是 JSON 解析錯誤
             if (error instanceof SyntaxError) {
-                questionBox.innerHTML = `<p>錯誤：題庫檔案 ${selectedSubject.file} 格式不正確。請檢查 JSON 語法。</p>`;
+                questionBox.innerHTML = `<p><b>錯誤：</b>題庫檔案 <b>${selectedSubject.file}</b> 格式不正確。<br>請檢查JSON語法，例如物件之間是否缺少逗號。</p>`;
             } else {
-                questionBox.innerHTML = `<p>錯誤：無法載入題庫。請檢查 ${selectedSubject.file} 檔案是否存在或網路問題。</p>`;
+                questionBox.innerHTML = `<p><b>錯誤：</b>無法載入題庫。<br>請檢查 <b>${selectedSubject.file}</b> 檔案是否存在、檔名是否正確，或網路是否有問題。</p>`;
             }
+            // Reset UI
             score.textContent = '';
-            document.getElementById('options-container')?.remove();
+            const optionsContainer = document.getElementById('options-container');
+            if(optionsContainer) optionsContainer.remove();
             prevBtn.disabled = true;
             nextBtn.disabled = true;
             explanationBtn.disabled = true;
-            calculateBtn.disabled = true;
             calculateBtn.style.display = "none";
         }
     }
 
-    // initializeQuiz 函數新增一個參數 isReviewWrong 以處理錯題檢討模式
     function initializeQuiz(questionsToUse, isReviewWrong = false) {
-      let questionsSource = JSON.parse(JSON.stringify(questionsToUse)); // 確保是獨立副本
+      let questionsSource = JSON.parse(JSON.stringify(questionsToUse));
       
-      if (!isReviewWrong) { // 如果不是錯題檢討模式，才根據下拉選單決定數量
-          const selectedMaxQuestions = parseInt(questionQuantitySelect.value);
-          // 確保選擇的題目數量不會超過實際題庫的數量
-          if (questionsSource.length > selectedMaxQuestions) {
-              shuffleArray(questionsSource);
-              questionsSource = questionsSource.slice(0, selectedMaxQuestions);
+      // *** 修正點：為每道題目初始化作答紀錄狀態 ***
+      questionsSource.forEach(q => {
+          q.userAttempt = { answered: false, choiceIndex: null, wasCorrect: null };
+          delete q.shuffledOptions; // 確保每次都重新洗牌
+      });
+      
+      if (!isReviewWrong) {
+          const selectedQuantity = questionQuantitySelect.value;
+          if (selectedQuantity !== "all") {
+              const selectedMaxQuestions = parseInt(selectedQuantity);
+              if (questionsSource.length > selectedMaxQuestions) {
+                  shuffleArray(questionsSource);
+                  questionsSource = questionsSource.slice(0, selectedMaxQuestions);
+              }
           }
       }
-      // 如果是錯題檢討，則直接使用傳入的 questionsToUse (即 wrongQuestions)
-
-      currentQuestions = questionsSource; // 設定為處理過後的題目列表
+      
+      currentQuestions = questionsSource;
       
       currentQuestionIndex = 0;
       correctCount = 0;
@@ -328,13 +331,9 @@
       explanationBtn.textContent = "看解析";
       updateScore();
       
-      if (currentQuestions.length === 0) {
+      if (!currentQuestions || currentQuestions.length === 0) {
         questionBox.innerHTML = "<p>此科目沒有題目。</p>";
-        prevBtn.disabled = true;
-        nextBtn.disabled = true;
-        explanationBtn.disabled = true;
-        calculateBtn.disabled = true;
-        calculateBtn.style.display = "none";
+        // ... (disable buttons)
         return;
       }
 
@@ -353,85 +352,75 @@
           shuffleArray(q.shuffledOptions);
       }
 
-      // 只有在還沒有完成所有題目時才隱藏/禁用結算按鈕
-      if (completedCount < currentQuestions.length) {
-          calculateBtn.style.display = "none";
-          calculateBtn.disabled = true;
-      }
-
-
       q.shuffledOptions.forEach(optionText => {
-        const btn = document.createElement("div");
-        btn.className = "option";
-        btn.textContent = optionText;
-        optionsContainer.appendChild(btn);
+        const optionDiv = document.createElement("div");
+        optionDiv.className = "option";
+        optionDiv.textContent = optionText;
+        optionsContainer.appendChild(optionDiv);
 
-        btn.addEventListener("click", () => {
-          if (q.userAttempt.answered) return;
-          
-          q.userAttempt.answered = true;
-          const chosenIndex = q.options.indexOf(optionText);
-          q.userAttempt.choiceIndex = chosenIndex;
-          q.userAttempt.wasCorrect = (chosenIndex === q.answer);
-
-          if (!q.userAttempt.wasCorrect) {
-              wrongCount++;
-          } else {
-              correctCount++;
-              scorePoints += (100 / currentQuestions.length);
-          }
-          completedCount++;
-
-          Array.from(optionsContainer.children).forEach(el => {
-              el.style.pointerEvents = "none";
-              const originalIndexOfEl = q.options.indexOf(el.textContent);
-              if (originalIndexOfEl === q.answer) el.classList.add("correct");
-              if (el === btn && !q.userAttempt.wasCorrect) {
-                  el.classList.add("incorrect");
-              }
-          });
-          
-          updateScore();
-          prevBtn.disabled = currentQuestionIndex === 0;
-
-          if (completedCount === currentQuestions.length) {
-            nextBtn.disabled = true;
-            nextBtn.textContent = "所有題目已作答";
-            calculateBtn.style.display = "inline-block";
-            calculateBtn.disabled = false;
-          } else {
-            nextBtn.disabled = false;
-            nextBtn.textContent = "下一題";
-          }
-        });
+        optionDiv.addEventListener("click", () => handleOptionClick(optionDiv, optionText));
       });
       
-      prevBtn.disabled = currentQuestionIndex === 0;
-      explanationBtn.disabled = false; 
+      updateButtonStates();
       
+      // If question was already answered, show the result
       if (q.userAttempt.answered) {
-         Array.from(optionsContainer.children).forEach(el => {
+         showAnswerResult();
+      }
+    }
+
+    function handleOptionClick(selectedDiv, optionText) {
+        const q = currentQuestions[currentQuestionIndex];
+        if (q.userAttempt.answered) return;
+        
+        q.userAttempt.answered = true;
+        const chosenIndex = q.options.indexOf(optionText);
+        q.userAttempt.choiceIndex = chosenIndex;
+        q.userAttempt.wasCorrect = (chosenIndex === q.answer);
+
+        if (q.userAttempt.wasCorrect) {
+            correctCount++;
+            scorePoints += (100 / currentQuestions.length);
+        } else {
+            wrongCount++;
+        }
+        completedCount++;
+        
+        showAnswerResult();
+        updateScore();
+        updateButtonStates();
+    }
+    
+    function showAnswerResult() {
+        const q = currentQuestions[currentQuestionIndex];
+        const optionsContainer = document.getElementById("options-container");
+        Array.from(optionsContainer.children).forEach(el => {
             el.style.pointerEvents = "none";
             const originalIndexOfEl = q.options.indexOf(el.textContent);
-            if (originalIndexOfEl === q.answer) el.classList.add("correct");
-            
+            if (originalIndexOfEl === q.answer) {
+                el.classList.add("correct");
+            }
             if (originalIndexOfEl === q.userAttempt.choiceIndex && !q.userAttempt.wasCorrect) {
-                 el.classList.add("incorrect");
+                el.classList.add("incorrect");
             }
         });
+    }
+
+    function updateButtonStates() {
+        const q = currentQuestions[currentQuestionIndex];
+        prevBtn.disabled = currentQuestionIndex === 0;
+        explanationBtn.disabled = false; 
+
         if (completedCount === currentQuestions.length) {
             nextBtn.disabled = true;
             nextBtn.textContent = "所有題目已作答";
             calculateBtn.style.display = "inline-block";
             calculateBtn.disabled = false;
         } else {
-            nextBtn.disabled = false;
+            nextBtn.disabled = !q.userAttempt.answered;
             nextBtn.textContent = "下一題";
+            calculateBtn.style.display = 'none';
         }
-      } else {
-          nextBtn.disabled = true;
-          nextBtn.textContent = "下一題";
-      }
     }
     
     function showEndQuizModal() {
@@ -441,15 +430,14 @@
     
     function toggleExplanation() {
       const q = currentQuestions[currentQuestionIndex];
-      const btn = document.getElementById("explanation-btn");
       if (result.style.display === 'none') {
         const explanationText = q.explanation && q.explanation.trim() !== "" ? q.explanation : "此題沒有提供解析。";
-        result.innerHTML = `解析：${explanationText}`;
+        result.innerHTML = `解析：<br>${explanationText.replace(/\n/g, '<br>')}`;
         result.style.display = 'block';
-        btn.textContent = '隱藏解析';
+        explanationBtn.textContent = '隱藏解析';
       } else {
         result.style.display = 'none';
-        btn.textContent = '看解析';
+        explanationBtn.textContent = '看解析';
       }
     }
 
@@ -457,11 +445,6 @@
       if (currentQuestionIndex < currentQuestions.length - 1) {
         currentQuestionIndex++;
         showQuestion();
-      } else if (completedCount === currentQuestions.length) {
-          calculateBtn.style.display = "inline-block";
-          calculateBtn.disabled = false;
-          nextBtn.disabled = true;
-          nextBtn.textContent = "所有題目已作答";
       }
     }
 
@@ -470,6 +453,19 @@
         currentQuestionIndex--;
         showQuestion();
       }
+    }
+
+    // *** 新增：處理左右滑動切換題目的手勢函數 ***
+    function handleGesture() {
+        const q = currentQuestions[currentQuestionIndex];
+        if (touchendX < touchstartX - swipeThreshold) { // 向左滑
+            if (q.userAttempt.answered || completedCount === currentQuestions.length) {
+                 nextQuestion();
+            }
+        }
+        if (touchendX > touchstartX + swipeThreshold) { // 向右滑
+            previousQuestion();
+        }
     }
 
     function startNewQuiz() {
@@ -489,8 +485,7 @@
       }
     }
     
-    // setupSubjectSelector 在一開始就呼叫，它會負責設定其他事件監聽器
-    setupSubjectSelector();
+    document.addEventListener('DOMContentLoaded', setupSubjectSelector);
   </script>
 </body>
 </html>
