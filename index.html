@@ -19,16 +19,16 @@
       align-items: center;
       margin-bottom: 10px;
     }
-    .selector-group { /* 新增一個包裝器來包含科目和題目數量選擇器 */
-        display: flex;
-        align-items: center;
-        gap: 15px; /* 增加科目和題目數量之間的間距 */
-        flex-wrap: wrap; /* 允許換行以適應小螢幕 */
+    .selector-group {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
     }
     .subject-selector-group {
-        display: flex;
-        align-items: center;
-        gap: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     label, select {
       font-size: 14px;
@@ -42,14 +42,17 @@
       font-size: 14px;
     }
     .subject-selector-group label, .subject-selector-group select {
-        margin: 0;
+      margin: 0;
+    }
+    /* *** 新增 quiz-area 樣式 *** */
+    #quiz-area {
+      touch-action: pan-y; /* 允許垂直滾動 */
     }
     .question-box {
       margin-top: 20px;
       font-size: 18px;
-      touch-action: pan-y; /* 允許垂直滾動，防止瀏覽器默認的水平滑動行為 */
-      min-height: 200px; /* 增加最小高度，確保有足夠的滑動區域 */
-      display: flex; /* 使用 flexbox 讓內容垂直居中，美觀 */
+      min-height: 200px; 
+      display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: flex-start;
@@ -64,8 +67,8 @@
       cursor: pointer;
       font-size: 18px;
       user-select: none;
-      width: 100%; /* 確保選項佔滿寬度 */
-      box-sizing: border-box; /* 邊框和內距包含在寬度內 */
+      width: 100%; 
+      box-sizing: border-box;
     }
     .option.correct {
       background-color: #e2f7e1;
@@ -94,10 +97,10 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      flex-wrap: wrap; /* 允許按鈕換行以適應小螢幕 */
+      flex-wrap: wrap;
     }
     #reset-btn {
-        margin-left: auto;
+      margin-left: auto;
     }
     .modal-overlay {
       position: fixed;
@@ -142,13 +145,17 @@
           <option value="20">20題</option>
           <option value="30">30題</option>
           <option value="50">50題</option>
+          <option value="all">全部</option>
         </select>
       </div>
     </div>
   </div>
 
-  <div class="question-box" id="question-box"></div>
-  <div id="result"></div>
+  <div id="quiz-area">
+    <div class="question-box" id="question-box"></div>
+    <div id="result"></div>
+  </div>
+  
   <div id="score"></div>
   <div class="button-group">
     <button id="prev-btn" disabled>上一題</button>
@@ -187,8 +194,10 @@
     let scorePoints = 0;
     let completedCount = 0;
 
+    // DOM Elements
     const subjectSelect = document.getElementById("subject-select");
     const questionQuantitySelect = document.getElementById("question-quantity-select");
+    const quizArea = document.getElementById("quiz-area"); // *** 新增對 quiz-area 的引用 ***
     const questionBox = document.getElementById("question-box");
     const result = document.getElementById("result");
     const score = document.getElementById("score");
@@ -202,6 +211,7 @@
     const reviewWrongBtn = document.getElementById("review-wrong-btn");
     const finishQuizBtn = document.getElementById("finish-quiz-btn");
     
+    // Touch event variables
     let touchstartX = 0;
     let touchendX = 0;
     const swipeThreshold = 50; 
@@ -215,7 +225,7 @@
             subjectSelect.appendChild(option);
         });
         
-        setupEventListeners(); 
+        setupEventListeners();
         loadSubjectAndStartQuiz();
     }
     
@@ -229,11 +239,12 @@
         calculateBtn.addEventListener("click", showEndQuizModal);
         resetBtn.addEventListener("click", startNewQuiz);
 
-        questionBox.addEventListener('touchstart', e => {
+        // *** 將滑動監聽器附加到新的 quiz-area 容器上 ***
+        quizArea.addEventListener('touchstart', e => {
             touchstartX = e.changedTouches[0].screenX;
         }, { passive: true });
 
-        questionBox.addEventListener('touchend', e => {
+        quizArea.addEventListener('touchend', e => {
             touchendX = e.changedTouches[0].screenX;
             handleGesture();
         }, { passive: true });
@@ -297,13 +308,16 @@
       });
       
       if (!isReviewWrong) {
-          const selectedMaxQuestions = parseInt(questionQuantitySelect.value);
-          if (questionsSource.length > selectedMaxQuestions) {
-              shuffleArray(questionsSource);
-              questionsSource = questionsSource.slice(0, selectedMaxQuestions);
+          const selectedQuantity = questionQuantitySelect.value;
+          if (selectedQuantity !== "all") {
+              const selectedMaxQuestions = parseInt(selectedQuantity);
+              if (questionsSource.length > selectedMaxQuestions) {
+                  shuffleArray(questionsSource);
+                  questionsSource = questionsSource.slice(0, selectedMaxQuestions);
+              }
           }
       }
-
+      
       currentQuestions = questionsSource;
       
       currentQuestionIndex = 0;
@@ -324,12 +338,9 @@
       explanationBtn.textContent = "看解析";
       updateScore();
       
-      if (currentQuestions.length === 0) {
+      if (!currentQuestions || currentQuestions.length === 0) {
         questionBox.innerHTML = "<p>此科目沒有題目。</p>";
-        prevBtn.disabled = true;
-        nextBtn.disabled = true;
-        explanationBtn.disabled = true;
-        calculateBtn.style.display = "none";
+        // ... (disable buttons)
         return;
       }
 
@@ -349,31 +360,12 @@
       }
 
       q.shuffledOptions.forEach(optionText => {
-        const btn = document.createElement("div");
-        btn.className = "option";
-        btn.textContent = optionText;
-        optionsContainer.appendChild(btn);
+        const optionDiv = document.createElement("div");
+        optionDiv.className = "option";
+        optionDiv.textContent = optionText;
+        optionsContainer.appendChild(optionDiv);
 
-        btn.addEventListener("click", () => {
-          if (q.userAttempt.answered) return;
-          
-          q.userAttempt.answered = true;
-          const chosenIndex = q.options.indexOf(optionText);
-          q.userAttempt.choiceIndex = chosenIndex;
-          q.userAttempt.wasCorrect = (chosenIndex === q.answer);
-
-          if (!q.userAttempt.wasCorrect) {
-              wrongCount++;
-          } else {
-              correctCount++;
-              scorePoints += (100 / currentQuestions.length);
-          }
-          completedCount++;
-
-          showAnswerResult();
-          updateScore();
-          updateButtonStates();
-        });
+        optionDiv.addEventListener("click", () => handleOptionClick(optionDiv, optionText));
       });
       
       updateButtonStates();
@@ -381,6 +373,28 @@
       if (q.userAttempt.answered) {
          showAnswerResult();
       } 
+    }
+
+    function handleOptionClick(selectedDiv, optionText) {
+        const q = currentQuestions[currentQuestionIndex];
+        if (q.userAttempt.answered) return;
+        
+        q.userAttempt.answered = true;
+        const chosenIndex = q.options.indexOf(optionText);
+        q.userAttempt.choiceIndex = chosenIndex;
+        q.userAttempt.wasCorrect = (chosenIndex === q.answer);
+
+        if (q.userAttempt.wasCorrect) {
+            correctCount++;
+            scorePoints += (100 / currentQuestions.length);
+        } else {
+            wrongCount++;
+        }
+        completedCount++;
+        
+        showAnswerResult();
+        updateScore();
+        updateButtonStates();
     }
     
     function showAnswerResult() {
@@ -391,8 +405,9 @@
         Array.from(optionsContainer.children).forEach(el => {
             el.style.pointerEvents = "none";
             const originalIndexOfEl = q.options.indexOf(el.textContent);
-            if (originalIndexOfEl === q.answer) el.classList.add("correct");
-            
+            if (originalIndexOfEl === q.answer) {
+                el.classList.add("correct");
+            }
             if (originalIndexOfEl === q.userAttempt.choiceIndex && !q.userAttempt.wasCorrect) {
                  el.classList.add("incorrect");
             }
@@ -449,16 +464,18 @@
       }
     }
     
-    // *** 新增滑動手勢處理邏輯 ***
+    // *** 最終修正版的滑動手勢處理邏輯 ***
     function handleGesture() {
+        const q = currentQuestions[currentQuestionIndex];
+        
         // 向左滑動 (下一題)
         if (touchendX < touchstartX - swipeThreshold) {
             // 只有在目前題目已作答，且不是最後一題時，才允許滑動到下一題
-            const q = currentQuestions[currentQuestionIndex];
             if (q.userAttempt.answered && currentQuestionIndex < currentQuestions.length - 1) {
                 nextQuestion();
             }
         }
+        
         // 向右滑動 (上一題)
         if (touchendX > touchstartX + swipeThreshold) {
             previousQuestion();
@@ -482,7 +499,6 @@
       }
     }
     
-    // 等待DOM載入完成後再執行
     document.addEventListener('DOMContentLoaded', setupSubjectSelector);
   </script>
 </body>
