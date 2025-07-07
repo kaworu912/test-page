@@ -19,16 +19,16 @@
       align-items: center;
       margin-bottom: 10px;
     }
-    .selector-group {
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      flex-wrap: wrap;
+    .selector-group { /* 新增一個包裝器來包含科目和題目數量選擇器 */
+        display: flex;
+        align-items: center;
+        gap: 15px; /* 增加科目和題目數量之間的間距 */
+        flex-wrap: wrap; /* 允許換行以適應小螢幕 */
     }
     .subject-selector-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
     label, select {
       font-size: 14px;
@@ -42,14 +42,14 @@
       font-size: 14px;
     }
     .subject-selector-group label, .subject-selector-group select {
-      margin: 0;
+        margin: 0;
     }
     .question-box {
       margin-top: 20px;
       font-size: 18px;
-      touch-action: pan-y;
-      min-height: 200px;
-      display: flex;
+      touch-action: pan-y; /* 允許垂直滾動，防止瀏覽器默認的水平滑動行為 */
+      min-height: 200px; /* 增加最小高度，確保有足夠的滑動區域 */
+      display: flex; /* 使用 flexbox 讓內容垂直居中，美觀 */
       flex-direction: column;
       justify-content: center;
       align-items: flex-start;
@@ -64,8 +64,8 @@
       cursor: pointer;
       font-size: 18px;
       user-select: none;
-      width: 100%;
-      box-sizing: border-box;
+      width: 100%; /* 確保選項佔滿寬度 */
+      box-sizing: border-box; /* 邊框和內距包含在寬度內 */
     }
     .option.correct {
       background-color: #e2f7e1;
@@ -94,10 +94,10 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      flex-wrap: wrap;
+      flex-wrap: wrap; /* 允許按鈕換行以適應小螢幕 */
     }
     #reset-btn {
-      margin-left: auto;
+        margin-left: auto;
     }
     .modal-overlay {
       position: fixed;
@@ -142,7 +142,6 @@
           <option value="20">20題</option>
           <option value="30">30題</option>
           <option value="50">50題</option>
-          <option value="all">全部</option>
         </select>
       </div>
     </div>
@@ -188,7 +187,6 @@
     let scorePoints = 0;
     let completedCount = 0;
 
-    // DOM Elements
     const subjectSelect = document.getElementById("subject-select");
     const questionQuantitySelect = document.getElementById("question-quantity-select");
     const questionBox = document.getElementById("question-box");
@@ -204,7 +202,6 @@
     const reviewWrongBtn = document.getElementById("review-wrong-btn");
     const finishQuizBtn = document.getElementById("finish-quiz-btn");
     
-    // Touch event variables
     let touchstartX = 0;
     let touchendX = 0;
     const swipeThreshold = 50; 
@@ -218,7 +215,7 @@
             subjectSelect.appendChild(option);
         });
         
-        setupEventListeners();
+        setupEventListeners(); 
         loadSubjectAndStartQuiz();
     }
     
@@ -290,27 +287,23 @@
             calculateBtn.style.display = "none";
         }
     }
-
+    
     function initializeQuiz(questionsToUse, isReviewWrong = false) {
       let questionsSource = JSON.parse(JSON.stringify(questionsToUse));
       
-      // *** 修正點：為每道題目初始化作答紀錄狀態 ***
       questionsSource.forEach(q => {
           q.userAttempt = { answered: false, choiceIndex: null, wasCorrect: null };
-          delete q.shuffledOptions; // 確保每次都重新洗牌
+          delete q.shuffledOptions;
       });
       
       if (!isReviewWrong) {
-          const selectedQuantity = questionQuantitySelect.value;
-          if (selectedQuantity !== "all") {
-              const selectedMaxQuestions = parseInt(selectedQuantity);
-              if (questionsSource.length > selectedMaxQuestions) {
-                  shuffleArray(questionsSource);
-                  questionsSource = questionsSource.slice(0, selectedMaxQuestions);
-              }
+          const selectedMaxQuestions = parseInt(questionQuantitySelect.value);
+          if (questionsSource.length > selectedMaxQuestions) {
+              shuffleArray(questionsSource);
+              questionsSource = questionsSource.slice(0, selectedMaxQuestions);
           }
       }
-      
+
       currentQuestions = questionsSource;
       
       currentQuestionIndex = 0;
@@ -331,9 +324,12 @@
       explanationBtn.textContent = "看解析";
       updateScore();
       
-      if (!currentQuestions || currentQuestions.length === 0) {
+      if (currentQuestions.length === 0) {
         questionBox.innerHTML = "<p>此科目沒有題目。</p>";
-        // ... (disable buttons)
+        prevBtn.disabled = true;
+        nextBtn.disabled = true;
+        explanationBtn.disabled = true;
+        calculateBtn.style.display = "none";
         return;
       }
 
@@ -353,73 +349,70 @@
       }
 
       q.shuffledOptions.forEach(optionText => {
-        const optionDiv = document.createElement("div");
-        optionDiv.className = "option";
-        optionDiv.textContent = optionText;
-        optionsContainer.appendChild(optionDiv);
+        const btn = document.createElement("div");
+        btn.className = "option";
+        btn.textContent = optionText;
+        optionsContainer.appendChild(btn);
 
-        optionDiv.addEventListener("click", () => handleOptionClick(optionDiv, optionText));
+        btn.addEventListener("click", () => {
+          if (q.userAttempt.answered) return;
+          
+          q.userAttempt.answered = true;
+          const chosenIndex = q.options.indexOf(optionText);
+          q.userAttempt.choiceIndex = chosenIndex;
+          q.userAttempt.wasCorrect = (chosenIndex === q.answer);
+
+          if (!q.userAttempt.wasCorrect) {
+              wrongCount++;
+          } else {
+              correctCount++;
+              scorePoints += (100 / currentQuestions.length);
+          }
+          completedCount++;
+
+          showAnswerResult();
+          updateScore();
+          updateButtonStates();
+        });
       });
       
       updateButtonStates();
       
-      // If question was already answered, show the result
       if (q.userAttempt.answered) {
          showAnswerResult();
-      }
-    }
-
-    function handleOptionClick(selectedDiv, optionText) {
-        const q = currentQuestions[currentQuestionIndex];
-        if (q.userAttempt.answered) return;
-        
-        q.userAttempt.answered = true;
-        const chosenIndex = q.options.indexOf(optionText);
-        q.userAttempt.choiceIndex = chosenIndex;
-        q.userAttempt.wasCorrect = (chosenIndex === q.answer);
-
-        if (q.userAttempt.wasCorrect) {
-            correctCount++;
-            scorePoints += (100 / currentQuestions.length);
-        } else {
-            wrongCount++;
-        }
-        completedCount++;
-        
-        showAnswerResult();
-        updateScore();
-        updateButtonStates();
+      } 
     }
     
     function showAnswerResult() {
         const q = currentQuestions[currentQuestionIndex];
         const optionsContainer = document.getElementById("options-container");
+        if (!optionsContainer) return;
+
         Array.from(optionsContainer.children).forEach(el => {
             el.style.pointerEvents = "none";
             const originalIndexOfEl = q.options.indexOf(el.textContent);
-            if (originalIndexOfEl === q.answer) {
-                el.classList.add("correct");
-            }
+            if (originalIndexOfEl === q.answer) el.classList.add("correct");
+            
             if (originalIndexOfEl === q.userAttempt.choiceIndex && !q.userAttempt.wasCorrect) {
-                el.classList.add("incorrect");
+                 el.classList.add("incorrect");
             }
         });
     }
 
     function updateButtonStates() {
-        const q = currentQuestions[currentQuestionIndex];
         prevBtn.disabled = currentQuestionIndex === 0;
-        explanationBtn.disabled = false; 
-
+        explanationBtn.disabled = false;
+        
+        const q = currentQuestions[currentQuestionIndex];
+        nextBtn.disabled = !q.userAttempt.answered || currentQuestionIndex === currentQuestions.length - 1;
+        
         if (completedCount === currentQuestions.length) {
-            nextBtn.disabled = true;
-            nextBtn.textContent = "所有題目已作答";
-            calculateBtn.style.display = "inline-block";
-            calculateBtn.disabled = false;
+          nextBtn.style.display = "none";
+          calculateBtn.style.display = "inline-block";
+          calculateBtn.disabled = false;
         } else {
-            nextBtn.disabled = !q.userAttempt.answered;
-            nextBtn.textContent = "下一題";
-            calculateBtn.style.display = 'none';
+          nextBtn.style.display = "inline-block";
+          calculateBtn.style.display = 'none';
         }
     }
     
@@ -430,14 +423,15 @@
     
     function toggleExplanation() {
       const q = currentQuestions[currentQuestionIndex];
+      const btn = document.getElementById("explanation-btn");
       if (result.style.display === 'none') {
         const explanationText = q.explanation && q.explanation.trim() !== "" ? q.explanation : "此題沒有提供解析。";
         result.innerHTML = `解析：<br>${explanationText.replace(/\n/g, '<br>')}`;
         result.style.display = 'block';
-        explanationBtn.textContent = '隱藏解析';
+        btn.textContent = '隱藏解析';
       } else {
         result.style.display = 'none';
-        explanationBtn.textContent = '看解析';
+        btn.textContent = '看解析';
       }
     }
 
@@ -454,16 +448,19 @@
         showQuestion();
       }
     }
-
-    // *** 新增：處理左右滑動切換題目的手勢函數 ***
+    
+    // *** 新增滑動手勢處理邏輯 ***
     function handleGesture() {
-        const q = currentQuestions[currentQuestionIndex];
-        if (touchendX < touchstartX - swipeThreshold) { // 向左滑
-            if (q.userAttempt.answered || completedCount === currentQuestions.length) {
-                 nextQuestion();
+        // 向左滑動 (下一題)
+        if (touchendX < touchstartX - swipeThreshold) {
+            // 只有在目前題目已作答，且不是最後一題時，才允許滑動到下一題
+            const q = currentQuestions[currentQuestionIndex];
+            if (q.userAttempt.answered && currentQuestionIndex < currentQuestions.length - 1) {
+                nextQuestion();
             }
         }
-        if (touchendX > touchstartX + swipeThreshold) { // 向右滑
+        // 向右滑動 (上一題)
+        if (touchendX > touchstartX + swipeThreshold) {
             previousQuestion();
         }
     }
@@ -485,6 +482,7 @@
       }
     }
     
+    // 等待DOM載入完成後再執行
     document.addEventListener('DOMContentLoaded', setupSubjectSelector);
   </script>
 </body>
