@@ -44,9 +44,8 @@
     .subject-selector-group label, .subject-selector-group select {
       margin: 0;
     }
-    /* *** 新增 quiz-area 樣式 *** */
     #quiz-area {
-      touch-action: pan-y; /* 允許垂直滾動 */
+      touch-action: pan-y; 
     }
     .question-box {
       margin-top: 20px;
@@ -197,7 +196,7 @@
     // DOM Elements
     const subjectSelect = document.getElementById("subject-select");
     const questionQuantitySelect = document.getElementById("question-quantity-select");
-    const quizArea = document.getElementById("quiz-area"); // *** 新增對 quiz-area 的引用 ***
+    const quizArea = document.getElementById("quiz-area"); 
     const questionBox = document.getElementById("question-box");
     const result = document.getElementById("result");
     const score = document.getElementById("score");
@@ -214,7 +213,7 @@
     // Touch event variables
     let touchstartX = 0;
     let touchendX = 0;
-    const swipeThreshold = 50; 
+    const swipeThreshold = 75; // *** 敏感度調整點：數值越大，越不敏感 ***
 
     function setupSubjectSelector() {
         subjectSelect.innerHTML = '';
@@ -239,7 +238,6 @@
         calculateBtn.addEventListener("click", showEndQuizModal);
         resetBtn.addEventListener("click", startNewQuiz);
 
-        // *** 將滑動監聽器附加到新的 quiz-area 容器上 ***
         quizArea.addEventListener('touchstart', e => {
             touchstartX = e.changedTouches[0].screenX;
         }, { passive: true });
@@ -464,21 +462,21 @@
       }
     }
     
-    // *** 最終修正版的滑動手勢處理邏輯 ***
     function handleGesture() {
         const q = currentQuestions[currentQuestionIndex];
         
         // 向左滑動 (下一題)
         if (touchendX < touchstartX - swipeThreshold) {
-            // 只有在目前題目已作答，且不是最後一題時，才允許滑動到下一題
-            if (q.userAttempt.answered && currentQuestionIndex < currentQuestions.length - 1) {
+            if (!nextBtn.disabled) {
                 nextQuestion();
             }
         }
         
         // 向右滑動 (上一題)
         if (touchendX > touchstartX + swipeThreshold) {
-            previousQuestion();
+            if (!prevBtn.disabled) {
+                previousQuestion();
+            }
         }
     }
 
